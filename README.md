@@ -4,3 +4,4 @@ Refer:[github.com/PuerkitoBio/goquery](github.com/PuerkitoBio/goquery)
 
 ## 📈What Can be Improved?
 - Reduce the time program takes to fetch results using go concurrency patterns
+- pass search pattern as cmdargs
