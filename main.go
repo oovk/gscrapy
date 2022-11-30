@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 var googleDomains = map[string]string{ //different country specific domains
@@ -86,6 +88,58 @@ func GoogleScrape(searchTerm string, countryCode string, languageCode string, pr
 		time.Sleep(time.Duration(backoff) * time.Second)
 	}
 	return results, nil
+}
+
+// GET request from client to server with url and proxystring
+func scrapeClientRequest(searchURL string, proxyString interface{}) (*http.Response, error) {
+	baseClient := getScrapeClient(proxyString)
+	req, _ := http.NewRequest("GET", searchURL, nil) //get request to the respective url
+	req.Header.Set("User-Agent", randomUserAgent())
+
+	res, err := baseClient.Do(req)
+	if res.StatusCode != 200 {
+		err := fmt.Errorf("scrapper received a non-200 status code suggesting a ban")
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+
+}
+
+// Parse the results and put it into document and then the struct we made, finding the needed information using html tags
+func googleResultParsing(response *http.Response, rank int) ([]SearchResults, error) {
+	doc, err := goquery.NewDocumentFromResponse(response) //respose received is converted to doc format so that the text can be modified to put into struct
+	if err != nil {
+		return nil, err
+	}
+	results := []SearchResults{}
+	sel := doc.Find("div.g") //this will contain every request
+	rank++
+	//we are traversing through html document here, getting all the text between tags that we need
+	for i := range sel.Nodes {
+		item := sel.Eq(i)
+		linkTag := item.Find("a") //html link tag <a>
+		link, _ := linkTag.Attr("href")
+		titleTag := item.Find("h3.r") //these tags are used by google
+		descTag := item.Find("span.st")
+		desc := descTag.Text()
+		title := titleTag.Text()
+		link = strings.Trim(link, " ")
+
+		if link != "" && link != "#" && !strings.HasPrefix(link, "/") {
+			result := SearchResults{
+				rank,
+				link,
+				title,
+				desc,
+			}
+			results = append(results, result)
+			rank++
+		}
+	}
+	return results, err
 }
 
 func main() {
